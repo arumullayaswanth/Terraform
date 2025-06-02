@@ -1,7 +1,7 @@
 node {
    
     stage('git checkout') { 
-       git branch: 'main', url: 'https://github.com/CloudTechDevOps/Terraform.git' 
+       git branch: 'main', url: 'https://github.com/arumullayaswanth/Treeaform.git' 
     }
     stage('init') {
        dir('day-2-basic_code'){
