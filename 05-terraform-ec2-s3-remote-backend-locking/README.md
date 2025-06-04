@@ -175,15 +175,17 @@ resource "aws_dynamodb_table" "tf_lock" {
 Now that the backend exists, configure it:
 Temporarily Comment Out the Backend Block
 the backend is defined, comment out this block for now:
-# terraform {
-#   backend "s3" {
-#     bucket         = "terraform-state-lock-yaswanth6758546"
-#     key            = "terraform.tfstate"
-#     region         = "us-east-1"
-#     dynamodb_table = "terraform-state-lock-dynamo"
-#     encrypt        = true
-#   }
-# }
+***
+.# terraform {
+.#   backend "s3" {
+.#     bucket         = "terraform-state-lock-yaswanth6758546"
+.#     key            = "terraform.tfstate"
+.#     region         = "us-east-1"
+.#     dynamodb_table = "terraform-state-lock-dynamo"
+.#     encrypt        = true
+.#   }
+.# }****
+
 
 ```hcl
 # Configure remote backend to use S3 and DynamoDB
@@ -262,8 +264,18 @@ output "bucket_name" {
    ```
 
 3. Uncomment backend block in `state-backend.tf` if not already done
+   
+.# terraform {
+.#   backend "s3" {
+.#     bucket         = "terraform-state-lock-yaswanth6758546"
+.#     key            = "terraform.tfstate"
+.#     region         = "us-east-1"
+.#     dynamodb_table = "terraform-state-lock-dynamo"
+.#     encrypt        = true
+.#   }
+.# }
 
-4. Re-initialize backend:
+5. Re-initialize backend:
 
    ```bash
    terraform init
@@ -271,7 +283,7 @@ output "bucket_name" {
 
    Confirm when prompted to migrate local state → type `yes`
 
-5. Apply full project:
+6. Apply full project:
 
    ```bash
    terraform apply
