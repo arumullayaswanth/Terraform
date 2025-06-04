@@ -1,1 +1,0 @@
-mybucket = "yaswanth7654"
