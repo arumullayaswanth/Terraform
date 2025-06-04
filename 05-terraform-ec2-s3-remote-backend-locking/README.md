@@ -276,3 +276,229 @@ You now have:
 * A general S3 bucket
 * Remote state stored in S3
 * Locking managed by DynamoDB
+
+
+
+
+
+# Terraform Project: EC2 + S3 (Remote State Only in S3)
+
+## Overview
+
+This guide walks you through building a Terraform project that:
+
+* Deploys an EC2 instance and S3 bucket
+* Stores Terraform state remotely in S3 (without DynamoDB locking)
+* Supports multi-developer collaboration (manual coordination)
+
+## ✅ Project Breakdown
+
+You will:
+
+1. Set up the S3 backend bucket
+2. Configure Terraform to use remote backend (only S3)
+3. Deploy EC2 and S3 resources
+
+## 🛠 Prerequisites
+
+* ✅ AWS CLI installed and configured (`aws configure`)
+* ✅ Terraform installed (`terraform -v`)
+* ✅ AWS key pair created in `us-east-1` (e.g., `ec2test`)
+* ✅ IAM user with EC2 and S3 permissions
+
+---
+
+## 📁 Directory Structure
+
+```
+terraform-ec2-s3-remote-state-s3-only/
+├── provider.tf
+├── variables.tf
+├── state-resources.tf
+├── state-backend.tf
+├── main.tf
+├── outputs.tf
+├── README.md
+```
+
+---
+
+## 🔹 Step 1: `provider.tf`
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 4.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+```
+
+---
+
+## 🔹 Step 2: `variables.tf`
+
+```hcl
+variable "ami" {
+  default = "ami-085ad6ae776d8f09c"
+}
+
+variable "instance_type" {
+  default = "t2.micro"
+}
+
+variable "key_name" {
+  default = "ec2test"
+}
+
+variable "ec2_name_tag" {
+  default = "dev"
+}
+
+variable "ec2_az" {
+  default = "us-east-1a"
+}
+
+variable "bucket_name" {
+  default = "multicloudnareshitveera"
+}
+
+variable "state_bucket" {
+  default = "veeranareshitdevopsss"
+}
+```
+
+---
+
+## 🔹 Step 3: `state-resources.tf`
+
+```hcl
+resource "aws_s3_bucket" "tf_backend" {
+  bucket = var.state_bucket
+
+  versioning {
+    enabled = true
+  }
+
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
+    }
+  }
+}
+```
+
+---
+
+## 🔹 Step 4: `state-backend.tf`
+
+```hcl
+# terraform {
+#   backend "s3" {
+#     bucket  = "veeranareshitdevopsss"
+#     key     = "terraform.tfstate"
+#     region  = "us-east-1"
+#     encrypt = true
+#   }
+# }
+
+#or
+
+terraform {
+  backend "s3" {
+    bucket  = "veeranareshitdevopsss"
+    key     = "terraform.tfstate"
+    region  = "us-east-1"
+    encrypt = true
+  }
+}
+
+
+```
+
+> ⚠️ Apply backend bucket before enabling this block.
+
+---
+
+## 🔹 Step 5: `main.tf`
+
+```hcl
+resource "aws_instance" "example" {
+  ami               = var.ami
+  instance_type     = var.instance_type
+  key_name          = var.key_name
+  availability_zone = var.ec2_az
+
+  tags = {
+    Name = var.ec2_name_tag
+  }
+}
+
+resource "aws_s3_bucket" "code_bucket" {
+  bucket = var.bucket_name
+}
+```
+
+---
+
+## 🔹 Step 6: `outputs.tf`
+
+```hcl
+output "ec2_instance_id" {
+  value = aws_instance.example.id
+}
+
+output "bucket_name" {
+  value = aws_s3_bucket.code_bucket.bucket
+}
+```
+
+---
+
+## 🔹 Step 7: Step-by-Step Commands
+
+```bash
+# Step 1: Go to your project directory
+cd terraform-ec2-s3-remote-state-s3-only
+
+# Step 2: Initialize Terraform
+terraform init
+
+# Step 3: Create only the S3 backend bucket
+terraform apply -target=aws_s3_bucket.tf_backend
+
+# Step 4: Enable remote backend by uncommenting backend block in state-backend.tf
+# Then re-initialize Terraform to switch to remote backend
+terraform init
+
+# Step 5: Confirm backend migration when prompted
+# Type "yes" to migrate state
+
+# Step 6: Apply your infrastructure
+terraform apply
+```
+
+---
+
+## ⚠️ Multi-Developer Notes (No Locking)
+
+* No DynamoDB state locking = no automatic protection
+* Use manual coordination (e.g., Slack, PR reviews) to avoid race conditions
+* Always pull the latest `.tf` changes before applying
+
+---
+
+## ✅ Summary
+
+* ✅ EC2 instance and general-purpose S3 bucket deployed
+* ✅ Terraform remote state stored in S3 only
+* ⚠️ Manual coordination required for multi-developer workflows (no locking)
+
