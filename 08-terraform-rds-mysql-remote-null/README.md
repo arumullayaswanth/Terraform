@@ -178,7 +178,31 @@ terraform apply
    * Subnet Group
    * Security Group allows MySQL traffic
 
+
+
+
+# 📘 How to Check MySQL Tables on AWS RDS
+
+After deploying your infrastructure using Terraform and initializing your MySQL database with `init.sql`, you can use the following steps to inspect and verify your tables.
+
 ---
+
+## 🔧 Prerequisites
+
+- MySQL client installed on your system
+- RDS instance up and running
+- Credentials from your Terraform deployment:
+  - **Host**: RDS endpoint from Terraform output
+  - **Port**: 3306 (default for MySQL)
+  - **Username**: `admin`
+  - **Password**: `Admin1234!`
+  - **Database**: `mydb`
+
+---
+
+## 🚀 Step-by-Step Instructions
+
+
 
 ### 🔹 Step 2: Connect to EC2 Bastion
 
@@ -204,11 +228,13 @@ mysql -h <RDS-ENDPOINT> -P 3306 -u admin -p
 
 ---
 
-### 🔹 Step 5: Verify Tables
+
+### 3. Enter the Database
+
+Once connected:
 
 ```sql
 USE mydb;
-SHOW TABLES;
 ```
 
 Expected Output:
@@ -226,6 +252,33 @@ Expected Output:
 
 ---
 
+## 📂 Inspect Your Tables
+
+### Show All Tables
+
+```sql
+SHOW TABLES;
+```
+
+### Describe Table Structure
+
+```sql
+DESCRIBE employees;
+DESCRIBE departments;
+DESCRIBE projects;
+DESCRIBE assignments;
+DESCRIBE employee_log;
+```
+
+### View Table Contents
+
+```sql
+SELECT * FROM employees;
+SELECT * FROM departments;
+SELECT * FROM projects;
+SELECT * FROM assignments;
+SELECT * FROM employee_log;
+```
 ### 🔹 Step 6: Query Data
 
 ```sql
@@ -246,13 +299,21 @@ JOIN projects p ON a.project_id = p.project_id;
 ```
 
 Expected Output:
+---
 
-| emp\_name | project\_name  |
-| --------- | -------------- |
-| Bob       | Project Apollo |
-| Diana     | Project Apollo |
-| Charlie   | Project Zephyr |
+## 🔒 Exit MySQL
 
+```sql
+\q
+```
+
+---
+
+## 🧠 Troubleshooting
+
+- **Access Denied**: Double-check username/password and security group rules.
+- **Host Not Found**: Ensure RDS is available and publicly accessible.
+- **No Tables Shown**: Ensure `init.sql` was executed successfully via Terraform provisioner.
 
 ---
 
@@ -274,3 +335,5 @@ terraform destroy
 ---
 
 **End of Guide**
+
+
