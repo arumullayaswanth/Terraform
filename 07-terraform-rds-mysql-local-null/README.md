@@ -24,10 +24,80 @@ terraform-rds-mysql-null/
 ## main.tf
 
 ```hcl
+
 provider "aws" {
   region = "us-east-1"
 }
 
+# VPC with DNS settings enabled
+resource "aws_vpc" "vpc" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name = "MyVPC"
+  }
+}
+
+# Subnets
+resource "aws_subnet" "subnet1" {
+  vpc_id                  = aws_vpc.vpc.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "us-east-1a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "Public Subnet 1"
+  }
+}
+
+resource "aws_subnet" "subnet2" {
+  vpc_id                  = aws_vpc.vpc.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "us-east-1b"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "Public Subnet 2"
+  }
+}
+
+# Internet Gateway
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.vpc.id
+
+  tags = {
+    Name = "Main IGW"
+  }
+}
+
+# Route Table
+resource "aws_route_table" "rt" {
+  vpc_id = aws_vpc.vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+
+  tags = {
+    Name = "Public RT"
+  }
+}
+
+# Route Table Association
+resource "aws_route_table_association" "rta1" {
+  subnet_id      = aws_subnet.subnet1.id
+  route_table_id = aws_route_table.rt.id
+}
+
+resource "aws_route_table_association" "rta2" {
+  subnet_id      = aws_subnet.subnet2.id
+  route_table_id = aws_route_table.rt.id
+}
+
+# DB Subnet Group
 resource "aws_db_subnet_group" "default" {
   name       = "default-subnet-group"
   subnet_ids = [aws_subnet.subnet1.id, aws_subnet.subnet2.id]
@@ -37,22 +107,7 @@ resource "aws_db_subnet_group" "default" {
   }
 }
 
-resource "aws_vpc" "vpc" {
-  cidr_block = "10.0.0.0/16"
-}
-
-resource "aws_subnet" "subnet1" {
-  vpc_id            = aws_vpc.vpc.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = "us-east-1a"
-}
-
-resource "aws_subnet" "subnet2" {
-  vpc_id            = aws_vpc.vpc.id
-  cidr_block        = "10.0.2.0/24"
-  availability_zone = "us-east-1b"
-}
-
+# Security Group
 resource "aws_security_group" "rds_sg" {
   name        = "rds-security-group"
   description = "Allow MySQL inbound"
@@ -62,7 +117,7 @@ resource "aws_security_group" "rds_sg" {
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # For demo only, restrict in prod!
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -71,41 +126,90 @@ resource "aws_security_group" "rds_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "RDS SG"
+  }
 }
 
+# RDS MySQL Instance
 resource "aws_db_instance" "mysql" {
-  allocated_storage    = 20
-  engine               = "mysql"
-  engine_version       = "8.0"
-  instance_class       = "db.t3.micro"
-  name                 = "mydb"
-  username             = "admin"
-  password             = "Admin1234!"  # Change to secure password
-  db_subnet_group_name = aws_db_subnet_group.default.name
-  vpc_security_group_ids = [aws_security_group.rds_sg.id]
-  skip_final_snapshot  = true
-  publicly_accessible  = true
-  multi_az             = false
+  allocated_storage       = 20
+  engine                  = "mysql"
+  engine_version          = "8.0"
+  instance_class          = "db.t3.micro"
+  db_name                 = "mydb"
+  username                = "admin"
+  password                = "Admin1234!"
+  db_subnet_group_name    = aws_db_subnet_group.default.name
+  vpc_security_group_ids  = [aws_security_group.rds_sg.id]
+  publicly_accessible     = true
+  multi_az                = false
+  skip_final_snapshot     = true
+
+  tags = {
+    Name = "terraform-mysql-db"
+  }
 }
 
+# Provisioner to initialize DB (init.sql must be present locally)
 resource "null_resource" "init_db" {
   depends_on = [aws_db_instance.mysql]
 
   provisioner "local-exec" {
+    interpreter = ["C:\\Program Files\\Git\\bin\\bash.exe", "-c"]
     command = <<EOT
-      # Wait for RDS to be available
       for i in {1..30}; do
-        nc -zvw3 ${aws_db_instance.mysql.address} 3306 && break
+        timeout 1 bash -c "</dev/tcp/${aws_db_instance.mysql.address}/3306" && break
         echo "Waiting for MySQL to be available..."
         sleep 10
       done
 
-      # Run the init.sql script to create schema and insert data
-      mysql -h ${aws_db_instance.mysql.address} -P 3306 -u admin -pAdmin1234! mydb < init.sql
+      "/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql" -h ${aws_db_instance.mysql.address} -P 3306 -u admin -pAdmin1234! mydb < init.sql
     EOT
-    interpreter = ["/bin/bash", "-c"]
   }
 }
+
+
+
+
+```
+
+## output.tf
+
+```hcl
+# RDS Endpoint
+output "rds_endpoint" {
+  description = "The endpoint of the MySQL RDS instance"
+  value       = aws_db_instance.mysql.endpoint
+}
+
+# RDS Address
+output "rds_address" {
+  description = "The address (hostname) of the MySQL RDS instance"
+  value       = aws_db_instance.mysql.address
+}
+
+# Subnet Group Name
+output "db_subnet_group" {
+  description = "The subnet group name used for the RDS instance"
+  value       = aws_db_subnet_group.default.name
+}
+
+# VPC ID
+output "vpc_id" {
+  description = "The ID of the created VPC"
+  value       = aws_vpc.vpc.id
+}
+
+# Security Group ID
+output "rds_security_group_id" {
+  description = "The security group ID used for RDS"
+  value       = aws_security_group.rds_sg.id
+}
+
+
+
 ```
 
 ---
@@ -150,7 +254,10 @@ CREATE TABLE IF NOT EXISTS assignments (
 
 -- Insert into departments
 INSERT INTO departments (dept_name) VALUES
-('HR'), ('Engineering'), ('Sales'), ('Marketing');
+('HR'),
+('Engineering'),
+('Sales'),
+('Marketing');
 
 -- Insert into employees
 INSERT INTO employees (emp_name, dept_id, salary, hire_date) VALUES
@@ -169,6 +276,20 @@ INSERT INTO assignments (emp_id, project_id, assigned_date, role) VALUES
 (2, 1, '2023-01-05', 'Lead Developer'),
 (4, 1, '2023-01-10', 'QA Engineer'),
 (3, 2, '2024-02-20', 'Sales Representative');
+
+-- Query example: List all employees with their department names and salaries
+SELECT e.emp_name, d.dept_name, e.salary
+FROM employees e
+JOIN departments d ON e.dept_id = d.dept_id
+ORDER BY e.emp_name;
+
+-- Query example: List projects and assigned employees with roles
+SELECT p.project_name, e.emp_name, a.role, a.assigned_date
+FROM projects p
+LEFT JOIN assignments a ON p.project_id = a.project_id
+LEFT JOIN employees e ON a.emp_id = e.emp_id
+ORDER BY p.project_name, e.emp_name;
+
 ```
 
 ---
@@ -189,7 +310,8 @@ terraform plan
 ### Step 3: Apply Configuration
 
 ```bash
-terraform apply
+terraform apply --auto-approve
+terraform state list
 ```
 
 ---
