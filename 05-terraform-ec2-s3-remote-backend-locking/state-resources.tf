@@ -1,20 +1,28 @@
-#  This creates the S3 bucket and DynamoDB table for state storage and locking.
-
+# 1. Create the S3 bucket
 resource "aws_s3_bucket" "tf_backend" {
   bucket = var.state_bucket
+}
 
-  versioning {
-    enabled = true
+# 2. Enable versioning
+resource "aws_s3_bucket_versioning" "tf_backend_versioning" {
+  bucket = aws_s3_bucket.tf_backend.id
+
+  versioning_configuration {
+    status = "Enabled"
   }
+}
 
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        sse_algorithm = "AES256"
-      }
+# 3. Enable encryption
+resource "aws_s3_bucket_server_side_encryption_configuration" "tf_backend_encryption" {
+  bucket = aws_s3_bucket.tf_backend.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
     }
   }
 }
+
 
 resource "aws_dynamodb_table" "tf_lock" {
   name         = var.dynamodb_table
