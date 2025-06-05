@@ -33,14 +33,23 @@ provider "aws" {
 
 # Create key pair from your local public key
 resource "aws_key_pair" "example" {
-  key_name   = "task"
-  public_key = file("~/.ssh/id_rsa.pub")
+  key_name   = "public-key"
+  public_key = file("C:/Users/Yaswanth Reddy/.ssh/id_ed25519.pub")
+
+  tags = {
+    Name = "Public-Key"
+  }
 }
 
 # VPC
 resource "aws_vpc" "myvpc" {
   cidr_block = "10.0.0.0/16"
+
+  tags = {
+    Name = "My-VPC"
+  }
 }
+
 
 # Subnet
 resource "aws_subnet" "sub1" {
@@ -48,12 +57,21 @@ resource "aws_subnet" "sub1" {
   cidr_block              = "10.0.0.0/24"
   availability_zone       = "us-east-1a"
   map_public_ip_on_launch = true
+
+  tags = {
+    Name = "Subnet-1"
+  }
 }
 
 # Internet Gateway
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.myvpc.id
+
+  tags = {
+    Name = "Internet-Gateway"
+  }
 }
+
 
 # Route Table
 resource "aws_route_table" "RT" {
@@ -63,7 +81,12 @@ resource "aws_route_table" "RT" {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
   }
+
+  tags = {
+    Name = "Route-Table"
+  }
 }
+
 
 # Associate Route Table with Subnet
 resource "aws_route_table_association" "rta1" {
@@ -100,7 +123,7 @@ resource "aws_security_group" "webSg" {
   }
 
   tags = {
-    Name = "Web-sg"
+    Name = "Web-SG"
   }
 }
 
@@ -113,28 +136,27 @@ resource "aws_instance" "server" {
   subnet_id              = aws_subnet.sub1.id
 
   tags = {
-    Name = "EC2-ubuntu"
+    Name = "EC2-Ubuntu"
   }
 
   connection {
     type        = "ssh"
     user        = "ubuntu"
-    private_key = file("~/.ssh/id_rsa")
+    private_key = file("C:/Users/Yaswanth Reddy/.ssh/id_ed25519")
     host        = self.public_ip
   }
 
-  # Local command
+ # Local command
   provisioner "local-exec" {
     command = "touch file500"
   }
-
-  # File copy
+# File copy
   provisioner "file" {
     source      = "file10"
     destination = "/home/ubuntu/file10"
   }
 
-  # Remote command
+# Remote command
   provisioner "remote-exec" {
     inline = [
       "touch file200",
@@ -142,6 +164,7 @@ resource "aws_instance" "server" {
     ]
   }
 }
+
 
 ```
 
