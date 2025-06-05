@@ -1,31 +1,35 @@
 variable "ami" {
-  default = "ami-085ad6ae776d8f09c"
+    default = "ami-02457590d33d576c3"
+  
 }
 
 variable "instance_type" {
-  default = "t2.micro"
+    default = "t2.micro"
+  
 }
 
 variable "key_name" {
-  default = "ec2test"
+    default = "public"
 }
 
 variable "ec2_name_tag" {
-  default = "dev"
+  default = "EC2-server"
 }
 
 variable "ec2_az" {
-  default = "us-east-1a"
+    default = "us-east-1a"
 }
 
-variable "bucket_name" {
-  default = "multicloudnareshitveera"
+variable "bucker_name" {
+    default = "yaswantharumulla523182"
 }
 
 variable "state_bucket" {
-  default = "yaswanthalure"
+    default = "terraform-state-lock-yaswanth6758546"
+  
 }
 
 variable "dynamodb_table" {
-  default = "terraform-state-lock-dynamo"
+    default = "terraform-state-lock-dynamo"
+  
 }
