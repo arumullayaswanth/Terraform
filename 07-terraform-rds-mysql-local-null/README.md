@@ -172,6 +172,27 @@ INSERT INTO assignments (emp_id, project_id, assigned_date, role) VALUES
 ```
 
 ---
+## ✅ Execution Steps
+
+### Step 1: Initialize Terraform
+
+```bash
+terraform init
+```
+
+### Step 2: Review Plan
+
+```bash
+terraform plan
+```
+
+### Step 3: Apply Configuration
+
+```bash
+terraform apply
+```
+
+---
 
 ## ✅ Verification Steps
 
