@@ -1,35 +1,29 @@
-# RDS MySQL endpoint
+# Output the RDS endpoint (includes port, used for connection)
 output "rds_endpoint" {
   description = "The endpoint of the MySQL RDS instance"
-  value       = aws_db_instance.mysql.endpoint
+  value       = aws_db_instance.mysql.endpoint  # Example: terraform-xyz.rds.amazonaws.com:3306
 }
 
-# RDS address (host)
+# Output the RDS address (hostname only, no port)
 output "rds_address" {
   description = "The address (hostname) of the MySQL RDS instance"
-  value       = aws_db_instance.mysql.address
+  value       = aws_db_instance.mysql.address   # Example: terraform-xyz.rds.amazonaws.com
 }
 
-# RDS database name
-output "rds_database_name" {
-  description = "The database name created in RDS"
-  value       = aws_db_instance.mysql.name
-}
-
-# Subnet group name
+# Output the DB subnet group name used for the RDS instance
 output "db_subnet_group" {
   description = "The subnet group name used for the RDS instance"
-  value       = aws_db_subnet_group.default.name
+  value       = aws_db_subnet_group.default.name  # Should be: default-subnet-group
 }
 
-# VPC ID
+# Output the ID of the created VPC
 output "vpc_id" {
   description = "The ID of the created VPC"
-  value       = aws_vpc.vpc.id
+  value       = aws_vpc.vpc.id  # VPC ID like: vpc-0abc123def456
 }
 
-# Security group ID
+# Output the ID of the security group used for RDS
 output "rds_security_group_id" {
   description = "The security group ID used for RDS"
-  value       = aws_security_group.rds_sg.id
+  value       = aws_security_group.rds_sg.id  # SG ID like: sg-0abc123def456
 }
