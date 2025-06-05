@@ -332,28 +332,21 @@ terraform state list
 
 ---
 
-### 🔹 Step 2: Connect to EC2 Bastion
+## ✅ Step 9: Connect Your Database on External Workbench
 
-```bash
-ssh -i ~/.ssh/id_rsa ec2-user@<EC2-PUBLIC-IP>
-```
+### 🔹 A. Using MySQL Workbench
 
----
+1. Open **MySQL Workbench** → Add new connection
+2. Set:
 
-### 🔹 Step 3: Install MySQL Client (if not installed)
+   * Connection Name: `rds-test-db`
+   * Hostname: `mydbinstance.c0n8k0a0swtz.us-east-1.rds.amazonaws.com`
+   * Port: `3306`
+   * Username: `admin`
+   * Password: enter and store
+3. Click **Test Connection**
 
-```bash
-sudo yum install -y mysql
-```
-
----
-
-### 🔹 Step 4: Connect to RDS from Bastion
-
-```bash
-mysql -h <RDS-ENDPOINT> -P 3306 -u admin -p
-```
-
+✅ Ensure RDS security group allows TCP 3306 from your IP
 ---
 
 ### 🔹 Step 5: Verify Tables
