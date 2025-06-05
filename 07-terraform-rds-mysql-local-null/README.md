@@ -339,8 +339,8 @@ terraform state list
 1. Open **MySQL Workbench** → Add new connection
 2. Set:
 
-   * Connection Name: `rds-test-db`
-   * Hostname: `mydbinstance.c0n8k0a0swtz.us-east-1.rds.amazonaws.com`
+   * Connection Name: `-----------`
+   * Hostname: `-------------------`
    * Port: `3306`
    * Username: `admin`
    * Password: enter and store
