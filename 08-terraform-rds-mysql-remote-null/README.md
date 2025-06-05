@@ -1,116 +1,51 @@
-# Terraform Project: AWS RDS MySQL with Null Resource and Init SQL Script
+# Terraform Project: RDS MySQL with Remote Null Resource
 
-## Overview
+## 📌 Overview
 
-This project deploys:
+This project automates the setup of:
 
-* AWS RDS MySQL instance
-* Null resource that waits for RDS to be ready, installs MySQL client, and runs SQL init script with schema + data
-* Uses Terraform provisioners (`local-exec`) for remote SQL execution via MySQL client
+* A VPC with public/private subnets.
+* A Bastion EC2 instance to act as a jump server.
+* A private RDS MySQL instance.
+* A `null_resource` with `remote-exec` to SSH into the Bastion and initialize the MySQL database remotely using `init.sql`.
 
 ---
 
-## Folder Structure
+## 💂 Folder Structure
 
-```
-terraform-rds-mysql-null/
+```bash
+terraform-rds-remote-null/
 ├── main.tf
 ├── init.sql
+├── outputs.tf
 ├── README.md
 ```
 
 ---
 
-## main.tf
+## 🔧 Pre-Requisites
 
-```hcl
-provider "aws" {
-  region = "us-east-1"
-}
-
-resource "aws_db_subnet_group" "default" {
-  name       = "default-subnet-group"
-  subnet_ids = [aws_subnet.subnet1.id, aws_subnet.subnet2.id]
-
-  tags = {
-    Name = "Default subnet group"
-  }
-}
-
-resource "aws_vpc" "vpc" {
-  cidr_block = "10.0.0.0/16"
-}
-
-resource "aws_subnet" "subnet1" {
-  vpc_id            = aws_vpc.vpc.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = "us-east-1a"
-}
-
-resource "aws_subnet" "subnet2" {
-  vpc_id            = aws_vpc.vpc.id
-  cidr_block        = "10.0.2.0/24"
-  availability_zone = "us-east-1b"
-}
-
-resource "aws_security_group" "rds_sg" {
-  name        = "rds-security-group"
-  description = "Allow MySQL inbound"
-  vpc_id      = aws_vpc.vpc.id
-
-  ingress {
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # For demo only, restrict in prod!
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-resource "aws_db_instance" "mysql" {
-  allocated_storage    = 20
-  engine               = "mysql"
-  engine_version       = "8.0"
-  instance_class       = "db.t3.micro"
-  name                 = "mydb"
-  username             = "admin"
-  password             = "Admin1234!"  # Change to secure password
-  db_subnet_group_name = aws_db_subnet_group.default.name
-  vpc_security_group_ids = [aws_security_group.rds_sg.id]
-  skip_final_snapshot  = true
-  publicly_accessible  = true
-  multi_az             = false
-}
-
-resource "null_resource" "init_db" {
-  depends_on = [aws_db_instance.mysql]
-
-  provisioner "local-exec" {
-    command = <<EOT
-      # Wait for RDS to be available
-      for i in {1..30}; do
-        nc -zvw3 ${aws_db_instance.mysql.address} 3306 && break
-        echo "Waiting for MySQL to be available..."
-        sleep 10
-      done
-
-      # Run the init.sql script to create schema and insert data
-      mysql -h ${aws_db_instance.mysql.address} -P 3306 -u admin -pAdmin1234! mydb < init.sql
-    EOT
-    interpreter = ["/bin/bash", "-c"]
-  }
-}
-```
+* Terraform installed
+* AWS CLI configured (`aws configure`)
+* An SSH key pair created locally (e.g. `~/.ssh/id_rsa`)
 
 ---
 
-## init.sql
+## 1⃣ main.tf
+
+Terraform configuration includes:
+
+* Provider config
+* VPC, Subnet, Gateway, Route Table setup
+* EC2 Bastion
+* RDS MySQL
+* Null resource with SSH and SQL execution logic
+
+*(See full ****`main.tf`**** in your workspace for detailed code)*
+
+---
+
+## 2⃣ init.sql
 
 ```sql
 -- Create departments table
@@ -119,7 +54,7 @@ CREATE TABLE IF NOT EXISTS departments (
   dept_name VARCHAR(100) NOT NULL UNIQUE
 );
 
--- Create employees table with foreign key to departments
+-- Create employees table
 CREATE TABLE IF NOT EXISTS employees (
   emp_id INT AUTO_INCREMENT PRIMARY KEY,
   emp_name VARCHAR(100) NOT NULL,
@@ -137,7 +72,7 @@ CREATE TABLE IF NOT EXISTS projects (
   end_date DATE
 );
 
--- Create assignments table to link employees and projects (many-to-many)
+-- Create assignments table
 CREATE TABLE IF NOT EXISTS assignments (
   assignment_id INT AUTO_INCREMENT PRIMARY KEY,
   emp_id INT,
@@ -148,27 +83,83 @@ CREATE TABLE IF NOT EXISTS assignments (
   FOREIGN KEY (project_id) REFERENCES projects(project_id)
 );
 
--- Insert into departments
-INSERT INTO departments (dept_name) VALUES
-('HR'), ('Engineering'), ('Sales'), ('Marketing');
+-- Create employee_log table
+CREATE TABLE IF NOT EXISTS employee_log (
+  log_id INT AUTO_INCREMENT PRIMARY KEY,
+  emp_name VARCHAR(100),
+  log_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
--- Insert into employees
+-- Trigger to log insertions to employees
+DELIMITER //
+CREATE TRIGGER log_employee_insert
+AFTER INSERT ON employees
+FOR EACH ROW
+BEGIN
+  INSERT INTO employee_log (emp_name) VALUES (NEW.emp_name);
+END;//
+DELIMITER ;
+
+-- Create a stored procedure
+DELIMITER //
+CREATE PROCEDURE GetEmployeesByDept(IN dept_name_param VARCHAR(100))
+BEGIN
+  SELECT e.emp_name, e.salary FROM employees e
+  JOIN departments d ON e.dept_id = d.dept_id
+  WHERE d.dept_name = dept_name_param;
+END;//
+DELIMITER ;
+
+-- Create a view
+CREATE OR REPLACE VIEW employee_project_view AS
+SELECT e.emp_name, d.dept_name, p.project_name, a.assigned_date, a.role
+FROM employees e
+JOIN departments d ON e.dept_id = d.dept_id
+JOIN assignments a ON e.emp_id = a.emp_id
+JOIN projects p ON a.project_id = p.project_id;
+
+-- Insert data
+INSERT INTO departments (dept_name) VALUES ('HR'), ('Engineering'), ('Sales'), ('Marketing'), ('Finance');
+
 INSERT INTO employees (emp_name, dept_id, salary, hire_date) VALUES
 ('Alice', 1, 70000.00, '2020-01-15'),
 ('Bob', 2, 90000.00, '2019-07-23'),
 ('Charlie', 3, 60000.00, '2021-03-12'),
-('Diana', 2, 95000.00, '2018-11-04');
+('Diana', 2, 95000.00, '2018-11-04'),
+('Edward', 4, 80000.00, '2022-05-01');
 
--- Insert into projects
 INSERT INTO projects (project_name, start_date, end_date) VALUES
 ('Project Apollo', '2023-01-01', '2023-12-31'),
-('Project Zephyr', '2024-02-15', NULL);
+('Project Zephyr', '2024-02-15', NULL),
+('Project Titan', '2024-03-01', '2024-08-31');
 
--- Insert into assignments
 INSERT INTO assignments (emp_id, project_id, assigned_date, role) VALUES
 (2, 1, '2023-01-05', 'Lead Developer'),
 (4, 1, '2023-01-10', 'QA Engineer'),
-(3, 2, '2024-02-20', 'Sales Representative');
+(3, 2, '2024-02-20', 'Sales Representative'),
+(5, 3, '2024-03-02', 'Marketing Lead');
+```
+
+---
+
+## ✅ Execution Steps
+
+### Step 1: Initialize Terraform
+
+```bash
+terraform init
+```
+
+### Step 2: Review Plan
+
+```bash
+terraform plan
+```
+
+### Step 3: Apply Configuration
+
+```bash
+terraform apply
 ```
 
 ---
