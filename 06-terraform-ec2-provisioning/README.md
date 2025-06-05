@@ -255,3 +255,64 @@ terraform destroy
 ---
 
 You're now ready to deploy a full AWS EC2 infrastructure with Terraform!
+
+
+
+## Terraform Output File for EC2 Provisioning
+
+### 📌 Project Summary
+
+This Terraform configuration provisions the following AWS resources:
+
+* One VPC and public subnet
+* Internet Gateway and Route Table for public access
+* Security Group allowing HTTP (80) and SSH (22)
+* Key Pair for SSH access
+* EC2 instance with file and command provisioners
+
+---
+
+### ✅ Outputs
+
+```hcl
+output "ec2_public_ip" {
+  description = "Public IP of the EC2 instance"
+  value       = aws_instance.server.public_ip
+}
+
+output "ec2_public_dns" {
+  description = "Public DNS of the EC2 instance"
+  value       = aws_instance.server.public_dns
+}
+
+output "ec2_id" {
+  description = "Instance ID of the EC2 instance"
+  value       = aws_instance.server.id
+}
+```
+
+---
+
+### 🛠 How to Use
+
+1. Add the above output block to a file named `outputs.tf`
+2. Run:
+
+```bash
+terraform apply
+```
+
+3. After deployment, Terraform will display:
+
+```
+ec2_public_ip = "<IP_ADDRESS>"
+ec2_public_dns = "<DNS_NAME>"
+ec2_id = "<INSTANCE_ID>"
+```
+
+Use the public IP/DNS to connect to the instance or verify access.
+
+---
+
+Let me know if you want this merged into your main `.tf` file or included in your GitHub `README.md`. ✅
+
