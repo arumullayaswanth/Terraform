@@ -131,7 +131,7 @@ resource "aws_db_instance" "mysql" {
 
 # — Secrets Manager Secret & Version
 resource "aws_secretsmanager_secret" "rds_secret" {
-  name        = "rds-credentials-new-2"
+  name        = "rds-credentials-new-5"
   description = "RDS MySQL Credentials"
 }
 
@@ -205,10 +205,15 @@ resource "aws_instance" "bastion" {
 
   tags = { Name = "BastionHost" }
 
+  # Ensure the secret version and VPC endpoint exist before we launch the EC2
+  depends_on = [
+    aws_secretsmanager_secret_version.initial_secret,
+    aws_vpc_endpoint.secretsmanager
+  ]
+
   provisioner "file" {
     source      = "init.sql"
     destination = "/tmp/init.sql"
-
     connection {
       type        = "ssh"
       user        = "ec2-user"
@@ -219,20 +224,36 @@ resource "aws_instance" "bastion" {
 
   provisioner "remote-exec" {
     inline = [
-      "sudo dnf clean all",
-      "sudo rm -f /etc/yum.repos.d/mysql-community.repo",
-      "sudo rm -f /etc/pki/rpm-gpg/RPM-GPG-KEY-mysql-2022",
-      "sudo dnf install -y --nogpgcheck https://repo.mysql.com/mysql80-community-release-el9-1.noarch.rpm",
-      "sudo dnf install -y --nogpgcheck mysql-community-client jq",
+      # 1. Install MariaDB client + jq
+      "sudo yum install -y mariadb105-server jq",
       "mysql --version",
-       "aws secretsmanager get-secret-value --secret-id rds-credentials-new-2 --query SecretString --output text > /tmp/creds.json",
-        "DB_HOST=$(jq -r .host /tmp/creds.json)",
-      "DB_USER=$(jq -r .username /tmp/creds.json)",
-      "DB_PASS=$(jq -r .password /tmp/creds.json)",
-      "DB_NAME=$(jq -r .dbname /tmp/creds.json)",
 
-       "mysql -h \"$DB_HOST\" -u \"$DB_USER\" -p\"$DB_PASS\" \"$DB_NAME\" < /tmp/init.sql"
+      # 2. Get credentials from AWS Secrets Manager
+      "aws secretsmanager get-secret-value --secret-id rds-credentials-new-5 --query SecretString --output text > /tmp/creds.json",
+
+      # 3. Extract creds
+      "export DB_HOST=$(jq -r .host /tmp/creds.json)",
+      "export DB_USER=$(jq -r .username /tmp/creds.json)",
+      "export DB_PASS=$(jq -r .password /tmp/creds.json)",
+      "export DB_NAME=$(jq -r .dbname /tmp/creds.json)",
+
+      # 4. Run init.sql
+      "mysql -h \"$DB_HOST\" -u \"$DB_USER\" -p\"$DB_PASS\" \"$DB_NAME\" < /tmp/init.sql",
+
+      # 5. Create /tmp/mysql.sh script for future access
+      "cat << 'EOF' > /tmp/mysql.sh",
+      "#!/bin/bash",
+      "export DB_HOST=$(jq -r .host /tmp/creds.json)",
+      "export DB_USER=$(jq -r .username /tmp/creds.json)",
+      "export DB_PASS=$(jq -r .password /tmp/creds.json)",
+      "export DB_NAME=$(jq -r .dbname /tmp/creds.json)",
+      "mysql -h \"$DB_HOST\" -u \"$DB_USER\" -p\"$DB_PASS\" \"$DB_NAME\"",
+      "EOF",
+
+      # 6. Make script executable
+      "chmod +x /tmp/mysql.sh"
     ]
+
     connection {
       type        = "ssh"
       user        = "ec2-user"
@@ -240,4 +261,5 @@ resource "aws_instance" "bastion" {
       host        = self.public_ip
     }
   }
+
 }
