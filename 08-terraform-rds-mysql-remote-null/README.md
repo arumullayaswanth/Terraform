@@ -1,179 +1,223 @@
-# Terraform Project: RDS MySQL with Remote Null Resource
+# 🚀 Terraform RDS MySQL with Remote Null Resource (Step-by-Step Guide)
 
-## Overview
+## 📘 Overview
 
-This project automates:
+This project provisions the following using Terraform:
 
-- A VPC with public and private subnets
-- A Bastion EC2 instance to act as a jump server
-- A private RDS MySQL instance
-- A null_resource with remote-exec that SSHs into the Bastion host and runs init.sql
+- A **custom VPC** with public/private subnets  
+- An **EC2 Bastion Host** for secure MySQL access  
+- A **private RDS MySQL instance**  
+- **Remote execution** using `null_resource` to run SQL from the Bastion
 
 ---
 
-## Folder Structure
+## 🧰 Prerequisites
 
+Before running this project, ensure the following:
+
+1. ✅ **Terraform** installed: [Install Terraform](https://developer.hashicorp.com/terraform/install)
+2. ✅ **AWS CLI** installed and configured:  
+   ```bash
+   aws configure
+   ```
+3. ✅ An SSH key pair available at:  
+   - Private key: `~/.ssh/id_rsa`  
+   - Public key: `~/.ssh/id_rsa.pub`
+
+---
+
+## 📂 Folder Structure
+
+```
 terraform-rds-remote-null/
-├── main.tf
-├── init.sql
-├── outputs.tf
-├── README.md
+├── main.tf         # Terraform configurations
+├── init.sql        # SQL schema/data to run after RDS setup
+├── outputs.tf      # Output variables
+├── README.md       # This file
+```
 
 ---
 
-## Pre-Requisites
+## 🪄 Step 1: Initialize Terraform
 
-- Terraform installed
-- AWS CLI configured (run `aws configure`)
-- SSH key pair available in `~/.ssh/id_rsa`
+Navigate into the project folder and initialize:
 
----
-
-## Terraform Execution Steps
-
-1. Initialize Terraform:
-
-    terraform init
-
-2. Check the plan:
-
-    terraform plan
-
-3. Apply the configuration:
-
-    terraform apply --auto-approve
+```bash
+cd terraform-rds-remote-null/
+terraform init
+```
 
 ---
 
-## Verification Steps
+## 🔍 Step 2: Preview Infrastructure
 
-### 1. RDS Setup Verification
+This shows what Terraform will create:
 
-- Go to AWS Console > RDS > Databases
-- Verify that the instance is:
-  - In Available state
-  - Using correct port (3306)
-  - Correct subnet group and security group
+```bash
+terraform plan
+```
 
 ---
 
-## How to Check MySQL Tables on AWS RDS
+## ⚙️ Step 3: Apply Configuration
 
-### Prerequisites
+Deploy all resources:
 
-- MySQL client installed
-- RDS instance must be running
-- Use the credentials and outputs from Terraform:
-  - Host: RDS Endpoint
-  - Port: 3306
-  - Username: admin
-  - Password: Admin1234!
-  - Database: mydb
+```bash
+terraform apply --auto-approve
+```
 
 ---
 
-## Accessing from the Bastion Host
+## ✅ Step 4: Validate RDS Deployment
 
-### Step 1: SSH into Bastion Host
+Once `apply` completes:
 
-    ssh -i ~/.ssh/id_rsa ec2-user@<BASTION_PUBLIC_IP>
-
-### Step 2: Check Remote Files
-
-    cd /tmp
-    ls
-    cat creds.json
-    cat mysql.sh
-
-### Step 3: Check Credentials
-
-    jq . /tmp/creds.json
-
-Expected output:
-
-    {
-      "dbname": "mydb",
-      "host": "my-rds.<region>.rds.amazonaws.com",
-      "password": "Admin1234!",
-      "username": "admin"
-    }
-
-### Step 4: Run the MySQL Script
-
-    sh mysql.sh
-
-You should see:
-
-    Welcome to the MySQL monitor...
-    mysql>
+1. Go to **AWS Console** → **RDS** → **Databases**
+2. Confirm:
+   - Status: `Available`
+   - Endpoint visible
+   - Port: `3306`
+   - Proper subnet group and security groups
 
 ---
 
-## MySQL Command Guide
+## 🔐 Step 5: Access EC2 Bastion Host
 
-### 1. Show All Databases:
+1. Copy the `bastion_public_ip` from the Terraform output.
 
-    SHOW DATABASES;
+2. SSH into the Bastion host:
 
-### 2. Use a Database:
-
-    USE mydb;
-
-### 3. List Tables:
-
-    SHOW TABLES;
-
-### 4. Show Table Structure:
-
-    DESCRIBE employees;
-    SHOW COLUMNS FROM employees;
-
-### 5. View Table Data:
-
-    SELECT * FROM employees;
-    SELECT * FROM employees LIMIT 5;
-    SELECT name FROM employees;
-    SELECT * FROM employees WHERE department_id = 2;
-
-### 6. View Existing Views:
-
-    SHOW FULL TABLES IN mydb WHERE Table_type = 'VIEW';
-    SHOW CREATE VIEW employee_project_view;
-    SELECT * FROM employee_project_view;
-
-### 7. Custom Queries:
-
-    SELECT e.name, d.name AS department
-    FROM employees e
-    JOIN departments d ON e.department_id = d.id;
-
-    SELECT department_id, COUNT(*) FROM employees GROUP BY department_id;
-
-### 8. Current User:
-
-    SELECT USER();
-
-### 9. Current Database:
-
-    SELECT DATABASE();
-
-### 10. Exit MySQL:
-
-    exit;
-    -- or --
-    \q
+```bash
+ssh -i ~/.ssh/id_rsa ec2-user@<BASTION_PUBLIC_IP>
+```
 
 ---
 
-## Clean Up
+## 🧪 Step 6: Validate MySQL Setup
 
-To destroy the infrastructure:
+### 1. Go to temp directory:
 
-    terraform destroy --auto-approve
+```bash
+cd /tmp
+```
+
+### 2. List and check credentials/scripts:
+
+```bash
+ls
+cat creds.json
+cat mysql.sh
+```
+
+### 3. Verify JSON content:
+
+```bash
+jq . /tmp/creds.json
+```
+
+Sample output:
+```json
+{
+  "dbname": "mydb",
+  "host": "my-rds.<region>.rds.amazonaws.com",
+  "password": "Admin1234!",
+  "username": "admin"
+}
+```
 
 ---
 
-## Author
+## 🔄 Step 7: Connect to MySQL
 
-Arumulla Yaswanth Reddy  
-Project: Terraform RDS with Remote SQL Execution
+Run the MySQL script:
+
+```bash
+sh mysql.sh
+```
+
+Expected result:
+```
+Welcome to the MySQL monitor...
+mysql>
+```
+
+---
+
+## 🧾 Step 8: Run SQL Queries
+
+### Show databases:
+```sql
+SHOW DATABASES;
+```
+
+### Use your database:
+```sql
+USE mydb;
+```
+
+### List tables:
+```sql
+SHOW TABLES;
+```
+
+### Describe table:
+```sql
+DESCRIBE employees;
+```
+
+### Select data:
+```sql
+SELECT * FROM employees;
+SELECT name FROM employees;
+```
+
+### Filter data:
+```sql
+SELECT * FROM employees WHERE department_id = 2;
+```
+
+### Views:
+```sql
+SHOW FULL TABLES IN mydb WHERE Table_type = 'VIEW';
+SELECT * FROM employee_project_view;
+```
+
+### Custom query:
+```sql
+SELECT e.name, d.name AS department
+FROM employees e
+JOIN departments d ON e.department_id = d.id;
+```
+
+---
+
+## 🚪 Step 9: Exit MySQL
+
+```sql
+exit;
+-- or --
+\q
+```
+
+---
+
+## 🧹 Step 10: Destroy Infrastructure (Optional)
+
+To clean up all resources:
+
+```bash
+terraform destroy --auto-approve
+```
+
+---
+
+## 📬 Need Help?
+
+Let me know if you want:
+
+- ✅ Full Terraform config (`main.tf`, `init.sql`, etc.)
+- ✅ Architecture diagram
+- ✅ GitHub-ready version
+
+Happy automating! ⚡
