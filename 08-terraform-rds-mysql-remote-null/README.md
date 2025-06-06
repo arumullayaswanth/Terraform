@@ -1,339 +1,179 @@
 # Terraform Project: RDS MySQL with Remote Null Resource
 
-## 📌 Overview
+## Overview
 
-This project automates the setup of:
+This project automates:
 
-* A VPC with public/private subnets.
-* A Bastion EC2 instance to act as a jump server.
-* A private RDS MySQL instance.
-* A `null_resource` with `remote-exec` to SSH into the Bastion and initialize the MySQL database remotely using `init.sql`.
+- A VPC with public and private subnets
+- A Bastion EC2 instance to act as a jump server
+- A private RDS MySQL instance
+- A null_resource with remote-exec that SSHs into the Bastion host and runs init.sql
 
 ---
 
-## 💂 Folder Structure
+## Folder Structure
 
-```bash
 terraform-rds-remote-null/
 ├── main.tf
 ├── init.sql
 ├── outputs.tf
 ├── README.md
-```
 
 ---
 
-## 🔧 Pre-Requisites
+## Pre-Requisites
 
-* Terraform installed
-* AWS CLI configured (`aws configure`)
-* An SSH key pair created locally (e.g. `~/.ssh/id_rsa`)
-
----
-
-## 1⃣ main.tf
-
-Terraform configuration includes:
-
-* Provider config
-* VPC, Subnet, Gateway, Route Table setup
-* EC2 Bastion
-* RDS MySQL
-* Null resource with SSH and SQL execution logic
-
-*(See full ****`main.tf`**** in your workspace for detailed code)*
+- Terraform installed
+- AWS CLI configured (run `aws configure`)
+- SSH key pair available in `~/.ssh/id_rsa`
 
 ---
 
-## 2⃣ init.sql
+## Terraform Execution Steps
 
-```sql
--- Create departments table
-CREATE TABLE IF NOT EXISTS departments (
-  dept_id INT AUTO_INCREMENT PRIMARY KEY,
-  dept_name VARCHAR(100) NOT NULL UNIQUE
-);
+1. Initialize Terraform:
 
--- Create employees table
-CREATE TABLE IF NOT EXISTS employees (
-  emp_id INT AUTO_INCREMENT PRIMARY KEY,
-  emp_name VARCHAR(100) NOT NULL,
-  dept_id INT,
-  salary DECIMAL(10, 2),
-  hire_date DATE,
-  FOREIGN KEY (dept_id) REFERENCES departments(dept_id)
-);
+    terraform init
 
--- Create projects table
-CREATE TABLE IF NOT EXISTS projects (
-  project_id INT AUTO_INCREMENT PRIMARY KEY,
-  project_name VARCHAR(100) NOT NULL,
-  start_date DATE,
-  end_date DATE
-);
+2. Check the plan:
 
--- Create assignments table
-CREATE TABLE IF NOT EXISTS assignments (
-  assignment_id INT AUTO_INCREMENT PRIMARY KEY,
-  emp_id INT,
-  project_id INT,
-  assigned_date DATE,
-  role VARCHAR(100),
-  FOREIGN KEY (emp_id) REFERENCES employees(emp_id),
-  FOREIGN KEY (project_id) REFERENCES projects(project_id)
-);
+    terraform plan
 
--- Create employee_log table
-CREATE TABLE IF NOT EXISTS employee_log (
-  log_id INT AUTO_INCREMENT PRIMARY KEY,
-  emp_name VARCHAR(100),
-  log_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+3. Apply the configuration:
 
--- Trigger to log insertions to employees
-DELIMITER //
-CREATE TRIGGER log_employee_insert
-AFTER INSERT ON employees
-FOR EACH ROW
-BEGIN
-  INSERT INTO employee_log (emp_name) VALUES (NEW.emp_name);
-END;//
-DELIMITER ;
-
--- Create a stored procedure
-DELIMITER //
-CREATE PROCEDURE GetEmployeesByDept(IN dept_name_param VARCHAR(100))
-BEGIN
-  SELECT e.emp_name, e.salary FROM employees e
-  JOIN departments d ON e.dept_id = d.dept_id
-  WHERE d.dept_name = dept_name_param;
-END;//
-DELIMITER ;
-
--- Create a view
-CREATE OR REPLACE VIEW employee_project_view AS
-SELECT e.emp_name, d.dept_name, p.project_name, a.assigned_date, a.role
-FROM employees e
-JOIN departments d ON e.dept_id = d.dept_id
-JOIN assignments a ON e.emp_id = a.emp_id
-JOIN projects p ON a.project_id = p.project_id;
-
--- Insert data
-INSERT INTO departments (dept_name) VALUES ('HR'), ('Engineering'), ('Sales'), ('Marketing'), ('Finance');
-
-INSERT INTO employees (emp_name, dept_id, salary, hire_date) VALUES
-('Alice', 1, 70000.00, '2020-01-15'),
-('Bob', 2, 90000.00, '2019-07-23'),
-('Charlie', 3, 60000.00, '2021-03-12'),
-('Diana', 2, 95000.00, '2018-11-04'),
-('Edward', 4, 80000.00, '2022-05-01');
-
-INSERT INTO projects (project_name, start_date, end_date) VALUES
-('Project Apollo', '2023-01-01', '2023-12-31'),
-('Project Zephyr', '2024-02-15', NULL),
-('Project Titan', '2024-03-01', '2024-08-31');
-
-INSERT INTO assignments (emp_id, project_id, assigned_date, role) VALUES
-(2, 1, '2023-01-05', 'Lead Developer'),
-(4, 1, '2023-01-10', 'QA Engineer'),
-(3, 2, '2024-02-20', 'Sales Representative'),
-(5, 3, '2024-03-02', 'Marketing Lead');
-```
+    terraform apply --auto-approve
 
 ---
 
-## ✅ Execution Steps
+## Verification Steps
 
-### Step 1: Initialize Terraform
+### 1. RDS Setup Verification
 
-```bash
-terraform init
-```
-
-### Step 2: Review Plan
-
-```bash
-terraform plan
-```
-
-### Step 3: Apply Configuration
-
-```bash
-terraform apply
-```
+- Go to AWS Console > RDS > Databases
+- Verify that the instance is:
+  - In Available state
+  - Using correct port (3306)
+  - Correct subnet group and security group
 
 ---
 
-## ✅ Verification Steps
+## How to Check MySQL Tables on AWS RDS
 
-### 🔹 Step 1: Verify RDS Setup in AWS Console
+### Prerequisites
 
-1. Log in to **AWS Console**
-2. Navigate to **RDS → Databases**
-3. Ensure the **RDS instance is available**
-4. Check the following:
-
-   * Endpoint
-   * Port (3306)
-   * Subnet Group
-   * Security Group allows MySQL traffic
-
-
-
-
-# 📘 How to Check MySQL Tables on AWS RDS
-
-After deploying your infrastructure using Terraform and initializing your MySQL database with `init.sql`, you can use the following steps to inspect and verify your tables.
+- MySQL client installed
+- RDS instance must be running
+- Use the credentials and outputs from Terraform:
+  - Host: RDS Endpoint
+  - Port: 3306
+  - Username: admin
+  - Password: Admin1234!
+  - Database: mydb
 
 ---
 
-## 🔧 Prerequisites
+## Accessing from the Bastion Host
 
-- MySQL client installed on your system
-- RDS instance up and running
-- Credentials from your Terraform deployment:
-  - **Host**: RDS endpoint from Terraform output
-  - **Port**: 3306 (default for MySQL)
-  - **Username**: `admin`
-  - **Password**: `Admin1234!`
-  - **Database**: `mydb`
+### Step 1: SSH into Bastion Host
 
----
+    ssh -i ~/.ssh/id_rsa ec2-user@<BASTION_PUBLIC_IP>
 
-## 🚀 Step-by-Step Instructions
+### Step 2: Check Remote Files
 
+    cd /tmp
+    ls
+    cat creds.json
+    cat mysql.sh
 
+### Step 3: Check Credentials
 
-### 🔹 Step 2: Connect to EC2 Bastion
+    jq . /tmp/creds.json
 
-```bash
-ssh -i ~/.ssh/id_rsa ec2-user@<EC2-PUBLIC-IP>
-```
+Expected output:
 
----
+    {
+      "dbname": "mydb",
+      "host": "my-rds.<region>.rds.amazonaws.com",
+      "password": "Admin1234!",
+      "username": "admin"
+    }
 
-### 🔹 Step 3: Install MySQL Client (if not installed)
+### Step 4: Run the MySQL Script
 
-```bash
-sudo yum install -y mysql
-```
+    sh mysql.sh
 
----
+You should see:
 
-### 🔹 Step 4: Connect to RDS from Bastion
-
-```bash
-mysql -h <RDS-ENDPOINT> -P 3306 -u admin -p
-```
+    Welcome to the MySQL monitor...
+    mysql>
 
 ---
 
+## MySQL Command Guide
 
-### 3. Enter the Database
+### 1. Show All Databases:
 
-Once connected:
+    SHOW DATABASES;
 
-```sql
-USE mydb;
-```
+### 2. Use a Database:
 
-Expected Output:
+    USE mydb;
 
-```
-+----------------+
-| Tables_in_mydb |
-+----------------+
-| assignments    |
-| departments    |
-| employees      |
-| projects       |
-+----------------+
-```
+### 3. List Tables:
 
----
+    SHOW TABLES;
 
-## 📂 Inspect Your Tables
+### 4. Show Table Structure:
 
-### Show All Tables
+    DESCRIBE employees;
+    SHOW COLUMNS FROM employees;
 
-```sql
-SHOW TABLES;
-```
+### 5. View Table Data:
 
-### Describe Table Structure
+    SELECT * FROM employees;
+    SELECT * FROM employees LIMIT 5;
+    SELECT name FROM employees;
+    SELECT * FROM employees WHERE department_id = 2;
 
-```sql
-DESCRIBE employees;
-DESCRIBE departments;
-DESCRIBE projects;
-DESCRIBE assignments;
-DESCRIBE employee_log;
-```
+### 6. View Existing Views:
 
-### View Table Contents
+    SHOW FULL TABLES IN mydb WHERE Table_type = 'VIEW';
+    SHOW CREATE VIEW employee_project_view;
+    SELECT * FROM employee_project_view;
 
-```sql
-SELECT * FROM employees;
-SELECT * FROM departments;
-SELECT * FROM projects;
-SELECT * FROM assignments;
-SELECT * FROM employee_log;
-```
-### 🔹 Step 6: Query Data
+### 7. Custom Queries:
 
-```sql
-SELECT * FROM departments;
-SELECT emp_name, salary FROM employees;
-SELECT * FROM assignments WHERE role = 'Lead Developer';
-```
+    SELECT e.name, d.name AS department
+    FROM employees e
+    JOIN departments d ON e.department_id = d.id;
+
+    SELECT department_id, COUNT(*) FROM employees GROUP BY department_id;
+
+### 8. Current User:
+
+    SELECT USER();
+
+### 9. Current Database:
+
+    SELECT DATABASE();
+
+### 10. Exit MySQL:
+
+    exit;
+    -- or --
+    \q
 
 ---
 
-### 🔹 Step 7: Join Query Example
+## Clean Up
 
-```sql
-SELECT e.emp_name, p.project_name
-FROM employees e
-JOIN assignments a ON e.emp_id = a.emp_id
-JOIN projects p ON a.project_id = p.project_id;
-```
+To destroy the infrastructure:
 
-Expected Output:
----
-
-## 🔒 Exit MySQL
-
-```sql
-\q
-```
+    terraform destroy --auto-approve
 
 ---
 
-## 🧠 Troubleshooting
+## Author
 
-- **Access Denied**: Double-check username/password and security group rules.
-- **Host Not Found**: Ensure RDS is available and publicly accessible.
-- **No Tables Shown**: Ensure `init.sql` was executed successfully via Terraform provisioner.
-
----
-
-### Step 5: Destroy Infrastructure
-
-```bash
-terraform destroy
-```
-
----
-
-## Notes
-
-* Replace AMI ID and region according to your AWS setup.
-* Make sure your SSH key is accessible and permissions are correct (`chmod 400 ~/.ssh/id_rsa`).
-* Only allow public access to EC2 for provisioning purposes.
-* You can automate access further by using user data or SSM.
-
----
-
-**End of Guide**
-
-
+Arumulla Yaswanth Reddy  
+Project: Terraform RDS with Remote SQL Execution
