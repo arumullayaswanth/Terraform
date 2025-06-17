@@ -7,7 +7,7 @@ This project provisions the following using Terraform:
 - A **custom VPC** with public/private subnets  
 - An **EC2 Bastion Host** for secure MySQL access  
 - A **private RDS MySQL instance**  
-- **Remote execution** using `null_resource` to run SQL from the Bastion
+- **Remote execution** using `null_resource` to run SQL from the Bastion.
 
 ---
 
