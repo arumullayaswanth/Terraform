@@ -1,3 +1,4 @@
+
 -- Create departments table
 CREATE TABLE IF NOT EXISTS departments (
   dept_id INT AUTO_INCREMENT PRIMARY KEY,
